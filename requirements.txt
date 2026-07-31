@@ -1,0 +1,27 @@
+# ---- Web layer (shared) ----
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+
+# ---- Config ----
+python-dotenv==1.0.1
+pydantic-settings==2.2.1
+
+# ---- Anime (Discord) bot ----
+discord.py==2.7.1
+# Bumped from 3.12.0: the old [srv] extra pinned dnspython<1.17, which
+# conflicts with FastAPI's email-validator (needs dnspython>=2.0).
+# Only basic CRUD is used, unchanged across the 3->4 upgrade.
+# pymongo 4.x dropped the [srv] extra, so dnspython is listed explicitly
+# below to support mongodb+srv:// (Atlas) connection strings.
+pymongo==4.8.0
+dnspython>=2.0.0
+# aiohttp is pulled in transitively by discord.py and line-bot-sdk;
+# left unpinned so pip resolves a version compatible with both.
+
+# ---- Scheduling (both bots) ----
+APScheduler==3.11.2
+
+# ---- Finance (LINE) bot ----
+line-bot-sdk==3.9.0
+yfinance==0.2.40
+requests==2.31.0

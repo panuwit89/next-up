@@ -1,0 +1,197 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Design tokens — the single source of truth for BOTH tabs.
+   Style: "Modern Dark" (deep navy base, never pure black: OLED smear + eye
+   strain). Anime and Finance differ only in content density; every surface,
+   radius, shadow, motion curve and type step below is shared.
+--------------------------------------------------------------------------- */
+@theme {
+  /* Surfaces — a 4-step elevation ladder, used in the same order everywhere. */
+  --color-bg: #0a1020;
+  --color-surface: #111a2e;
+  --color-surface-2: #16223c;
+  --color-surface-3: #1d2c4a;
+
+  /* Text — three tiers, all verified >= 4.5:1 against --color-surface. */
+  --color-fg: #f1f5f9; /* 15.4:1 */
+  --color-fg-muted: #a3b0c2; /*  7.8:1 */
+  --color-fg-subtle: #7d8ba3; /*  4.9:1 */
+
+  /* Borders — the low one is a hairline, the strong one marks focus/selection. */
+  --color-line: rgba(255, 255, 255, 0.08);
+  --color-line-strong: rgba(255, 255, 255, 0.16);
+
+  /* Brand — fill vs. on-dark text are deliberately different shades. */
+  --color-primary: #2563eb; /* button fills; 8.7:1 with white text */
+  --color-primary-hover: #1d4ed8;
+  --color-primary-fg: #60a5fa; /* links + accents on dark; 5.9:1 */
+  --color-ring: #3b82f6;
+
+  /* Semantic — market direction and destructive actions.
+     Always paired with an icon or sign so meaning is never colour-only. */
+  --color-up: #34d399; /* 8.9:1 */
+  --color-down: #f87171; /* 6.2:1 */
+  --color-warn: #fbbf24;
+  --color-danger: #f87171;
+  --color-danger-fill: #b91c1c;
+
+  /* Type — Fira Sans for prose, Fira Code wherever digits must line up
+     (prices, EMA columns, episode numbers, timestamps). */
+  --font-sans: "Fira Sans", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --font-mono: "Fira Code", ui-monospace, "Cascadia Mono", monospace;
+
+  /* Radii + shadows — one scale, so a stock row and an anime card feel related. */
+  --radius-card: 0.75rem;
+  --radius-control: 0.5rem;
+
+  --shadow-raise: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.25);
+  --shadow-overlay: 0 24px 64px rgba(0, 0, 0, 0.6);
+
+  /* Motion — micro-interactions 160ms, overlays 220ms in / 140ms out. */
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html {
+    background-color: var(--color-bg);
+    color-scheme: dark;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background-color: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Digits never reflow as values tick. */
+  .tabular,
+  input[type="number"] {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+
+  /* One focus treatment for the whole app. Never removed — only restyled. */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-surface-3);
+    border-radius: 99px;
+    border: 2px solid var(--color-bg);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #2a3d63;
+  }
+}
+
+@layer utilities {
+  /* Entrance animations. Every one is transform/opacity only — no reflow. */
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.985);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes slide-in-right {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: none;
+    }
+  }
+
+  @keyframes shimmer {
+    to {
+      background-position: -200% 0;
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 180ms var(--ease-out-soft) both;
+  }
+  .animate-rise-in {
+    animation: rise-in 220ms var(--ease-out-soft) both;
+  }
+  .animate-slide-in-right {
+    animation: slide-in-right 240ms var(--ease-out-soft) both;
+  }
+
+  /* Grid/list entrance stagger: 30ms apart, capped so long lists stay snappy.
+     Opacity only — a translate/scale entrance leaves cards at momentarily
+     different offsets and sizes, which reads as a broken grid rather than as
+     motion, especially on a page reloaded many times a day. */
+  .stagger > * {
+    animation: fade-in 220ms var(--ease-out-soft) both;
+    animation-delay: calc(var(--i, 0) * 30ms);
+  }
+
+  /* Dense on a mouse, thumb-friendly on a touch screen. */
+  .touch-target {
+    touch-action: manipulation;
+  }
+  @media (pointer: coarse) {
+    .touch-target {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
+
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--color-surface-2) 0%,
+      var(--color-surface-3) 50%,
+      var(--color-surface-2) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.4s linear infinite;
+  }
+}
+
+/* Honour the OS setting: keep the UI legible, drop the movement. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

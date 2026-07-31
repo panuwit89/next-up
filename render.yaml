@@ -1,0 +1,51 @@
+services:
+  - type: web
+    name: combined-bot
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      # ---- Anime (Discord) bot ----
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: MONGO_URI
+        sync: false
+
+      # ---- Finance (LINE) bot ----
+      - key: LINE_CHANNEL_SECRET
+        sync: false
+      - key: LINE_CHANNEL_ACCESS_TOKEN
+        sync: false
+      - key: LINE_USER_ID
+        sync: false
+
+      # ---- LLM (Gemini) ----
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash
+
+      # ---- News ----
+      - key: NEWSAPI_KEY
+        sync: false
+
+      # ---- Weekly schedule (Mon 10:00 Asia/Bangkok) ----
+      - key: SCHEDULE_DAY_OF_WEEK
+        value: mon
+      - key: SCHEDULE_HOUR
+        value: "10"
+      - key: SCHEDULE_MINUTE
+        value: "0"
+      - key: TIMEZONE
+        value: Asia/Bangkok
+
+      # ---- Finance source configuration ----
+      # STOCK_SYMBOLS seeds the watchlist on first run only; afterwards the
+      # MongoDB `stock_watchlist` collection is authoritative.
+      - key: STOCK_SYMBOLS
+        value: tsmc,nvidia
+      - key: NEWS_QUERY
+        value: technology OR finance OR stocks OR AI

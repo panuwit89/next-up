@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+
+# Frontend build inputs. Note: `static/` is deliberately NOT ignored — Render's
+# Python runtime has no Node, so the built dashboard must be committed.
+node_modules/
+frontend/.vite

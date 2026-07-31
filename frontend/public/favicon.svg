@@ -1,0 +1,10 @@
+<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <!-- Rounded plate so the mark keeps its shape on any browser-tab background;
+       tokens are inlined because a favicon has no stylesheet context. -->
+  <rect width="32" height="32" rx="7" fill="#0a1020"/>
+  <path d="M5 6.5 L5 24.5 L17.5 15.5 Z" fill="#60a5fa"/>
+  <path d="M6 24.5 L12 19 L16 22.5 L24.5 10.5"
+        fill="none" stroke="#34d399" stroke-width="3"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="22" y="8" width="5" height="5" rx="1.5" fill="#34d399"/>
+</svg>
