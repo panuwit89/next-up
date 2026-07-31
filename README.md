@@ -1,9 +1,5 @@
 # Combined Bot (Anime Discord + Finance LINE + Dashboard API)
 
-Two bots merged into **one** Render web service so they fit inside the free-tier
-750 instance-hours/month cap (one always-on service ≈ 730 h; two ≈ 1,460 h),
-plus a JSON API for a personal web dashboard.
-
 A single **FastAPI** app is the only web server. It:
 
 - serves the **LINE webhook** (`/webhook`) and health endpoints,
