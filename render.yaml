@@ -32,6 +32,11 @@ services:
       - key: NEWSAPI_KEY
         sync: false
 
+      # ---- Stock prices ----
+      # Required: Yahoo rate-limits Render's shared egress IPs (HTTP 429).
+      - key: TWELVEDATA_API_KEY
+        sync: false
+
       # ---- Weekly schedule (Mon 10:00 Asia/Bangkok) ----
       - key: SCHEDULE_DAY_OF_WEEK
         value: mon

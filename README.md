@@ -92,8 +92,31 @@ being split into groups, so each group is independently sorted.
 
 EMA windows are **trading days**: `week_1`=5, `week_2`=10, `month_1`=21.
 
-Chart ranges → Yahoo intervals: `1d`→5m, `5d`→30m, `1mo`/`6mo`/`ytd`/`1y`→1d,
+Chart ranges → intervals: `1d`→5m, `5d`→30m, `1mo`/`6mo`/`ytd`/`1y`→1d,
 `5y`→1wk, `max`→1mo.
+
+### Where prices come from
+
+`finance/services/market_data.py` tries two providers and normalises both to the
+same candle shape:
+
+1. **Yahoo** chart endpoint — no key, richest data, used whenever it answers.
+2. **Twelve Data** — free API key, used when Yahoo refuses.
+
+Yahoo rate-limits **by IP**, and Render's egress addresses are shared with
+thousands of other services, so in production every Yahoo request returns HTTP
+429 while the identical request from a home connection succeeds. Headers and
+retries make no difference — it is the address, not the request.
+
+After one 429 the module stops calling Yahoo for 30 minutes (process-local), so
+production settles on Twelve Data without paying a timeout per symbol, while
+local development keeps using Yahoo. A restart re-probes, in case the block lifts.
+
+Without `TWELVEDATA_API_KEY` the finance tab and the weekly LINE brief both fail
+on Render — the error names the missing key.
+
+The 52-week range costs one extra Twelve Data request, so it is only fetched for
+the detail drawer (`range=1d`/`5d`), never for the dashboard.
 
 ### Other
 
@@ -156,6 +179,7 @@ See `.env.example`. Required in production:
 | `LINE_CHANNEL_SECRET`, `LINE_CHANNEL_ACCESS_TOKEN`, `LINE_USER_ID` | finance bot |
 | `GEMINI_API_KEY` | finance message generation |
 | `NEWSAPI_KEY` | finance news |
+| `TWELVEDATA_API_KEY` | stock prices — **required in production**, see below |
 
 Optional (have defaults): `GEMINI_MODEL`, `SCHEDULE_*`, `TIMEZONE`, `NEWS_QUERY`.
 

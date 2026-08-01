@@ -29,6 +29,10 @@ class Settings(BaseSettings):
 
     NEWSAPI_KEY: str = ""
 
+    # Price fallback. Yahoo's chart endpoint blocks Render's shared egress IPs
+    # with HTTP 429, so a keyed provider is required in production.
+    TWELVEDATA_API_KEY: str = ""
+
     SCHEDULE_DAY_OF_WEEK: str = "mon"
     SCHEDULE_HOUR: int = Field(default=10, ge=0, le=23)
     SCHEDULE_MINUTE: int = Field(default=0, ge=0, le=59)

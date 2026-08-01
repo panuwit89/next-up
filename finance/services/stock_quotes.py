@@ -6,6 +6,7 @@ import requests
 import yfinance as yf
 
 from finance.config import get_settings
+from finance.services.market_data import get_chart
 from finance.services.symbols import company_name_for_symbol, resolve_stock_symbol
 
 
@@ -56,12 +57,38 @@ def fetch_stock_quotes(
 
 
 def _fetch_one_symbol(symbol: str) -> dict[str, Any]:
+    """Daily history via the shared provider chain (Yahoo -> Twelve Data).
+
+    yfinance is kept only as a last resort: it also talks to Yahoo, so it fails
+    for the same reason whenever the chart endpoint does.
+    """
     errors = []
 
     try:
-        return _fetch_one_symbol_from_yahoo_chart(symbol)
+        chart = get_chart(symbol, HISTORY_RANGE, "1d")
+        closes = [candle["close"] for candle in chart["candles"] if candle.get("close") is not None]
+        if not closes:
+            raise RuntimeError("no closing prices returned")
+
+        meta = chart.get("meta") or {}
+        price = meta.get("regular_market_price") or closes[-1]
+        previous_close = meta.get("previous_close")
+        if previous_close is None and len(closes) > 1:
+            previous_close = closes[-2]
+
+        change_pct = None
+        if previous_close:
+            change_pct = ((price - previous_close) / previous_close) * 100
+
+        return {
+            "symbol": symbol,
+            "price": round(price, 2),
+            "change_pct": round(change_pct, 2) if change_pct is not None else None,
+            "volume": chart["candles"][-1].get("volume") or 0,
+            "technical": _technical_snapshot(closes),
+        }
     except Exception as exc:
-        errors.append(f"Yahoo chart: {exc}")
+        errors.append(str(exc))
 
     try:
         return _fetch_one_symbol_from_yfinance(symbol)

@@ -9,16 +9,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-import requests
-
-from finance.services.symbols import company_name_for_symbol, resolve_stock_symbol
+from finance.services.market_data import get_chart
+from finance.services.symbols import company_name_for_symbol
 from web.cache import cache_get, cache_set, cached
 
 
 logger = logging.getLogger("web.stocks")
-
-YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
-REQUEST_HEADERS = {"accept": "application/json", "user-agent": "finance-bot/1.0"}
 
 # 6 months of daily candles: enough warm-up for a meaningful 21-day EMA.
 DASHBOARD_RANGE = "6mo"
@@ -206,66 +202,8 @@ def fetch_symbol_news(symbol: str, limit: int = 5) -> list[dict[str, Any]]:
 
 
 def _fetch_chart(symbol: str, range_key: str, interval: str) -> dict[str, Any]:
-    response = requests.get(
-        YAHOO_CHART_URL.format(symbol=resolve_stock_symbol(symbol)),
-        params={"range": range_key, "interval": interval, "includePrePost": "false"},
-        headers=REQUEST_HEADERS,
-        timeout=10,
-    )
-    response.raise_for_status()
-    payload = response.json()
-
-    chart = payload.get("chart") or {}
-    error = chart.get("error")
-    if error:
-        raise RuntimeError(error.get("description") or error.get("code") or "unknown error")
-
-    result = (chart.get("result") or [None])[0]
-    if not result:
-        raise RuntimeError(f"No chart data returned for {symbol}.")
-
-    quote = ((result.get("indicators") or {}).get("quote") or [{}])[0]
-    timestamps = result.get("timestamp") or []
-    meta = result.get("meta") or {}
-
-    candles = []
-    for index, timestamp in enumerate(timestamps):
-        close = _at(quote.get("close"), index)
-        if close is None:
-            continue  # holidays / halted sessions come back as null
-        candles.append(
-            {
-                "timestamp": timestamp,
-                "open": _round_optional(_at(quote.get("open"), index)),
-                "high": _round_optional(_at(quote.get("high"), index)),
-                "low": _round_optional(_at(quote.get("low"), index)),
-                "close": _round_optional(close),
-                "volume": _at(quote.get("volume"), index) or 0,
-            }
-        )
-
-    return {
-        "candles": candles,
-        "meta": {
-            "currency": meta.get("currency"),
-            "exchange": meta.get("fullExchangeName") or meta.get("exchangeName"),
-            "market_state": meta.get("marketState"),
-            "regular_market_price": _round_optional(meta.get("regularMarketPrice")),
-            "previous_close": _round_optional(
-                meta.get("chartPreviousClose") or meta.get("previousClose")
-            ),
-            "day_high": _round_optional(meta.get("regularMarketDayHigh")),
-            "day_low": _round_optional(meta.get("regularMarketDayLow")),
-            "fifty_two_week_high": _round_optional(meta.get("fiftyTwoWeekHigh")),
-            "fifty_two_week_low": _round_optional(meta.get("fiftyTwoWeekLow")),
-        },
-    }
-
-
-def _at(values: Any, index: int) -> Any:
-    if not isinstance(values, list) or index >= len(values):
-        return None
-    return values[index]
+    """Delegates to the provider chain (Yahoo, falling back to Twelve Data)."""
+    return get_chart(symbol, range_key, interval, with_quote=range_key in ("1d", "5d"))
 
 
 def _round_optional(value: Any, digits: int = 2) -> float | None:
