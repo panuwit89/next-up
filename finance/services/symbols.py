@@ -128,9 +128,44 @@ def company_name_for_symbol(symbol: str) -> str:
     return COMPANY_NAMES.get(resolved, resolved)
 
 
-def company_news_query(symbol: str) -> str:
+# Legal-entity suffixes that never appear in a headline. "Group" is deliberately
+# absent — it is part of the brand often enough that dropping it loses meaning.
+# Compared with dots removed, so "N.V." and "NV" both match the same entry.
+CORPORATE_SUFFIXES = (
+    "incorporated", "inc", "corporation", "corp", "company", "co",
+    "limited", "ltd", "plc", "llc", "holdings", "holding",
+    "nv", "sa", "ag", "a/s", "se", "ab", "oyj",
+)
+
+
+def company_news_query(symbol: str, company_name: str | None = None) -> str:
+    """Build a NewsAPI query that actually filters to this company.
+
+    The old fallback was `"SYM" OR SYM stock`. The second half is unquoted, so
+    NewsAPI matched it loosely and returned generic market coverage — 39,000
+    results for QQQM, none of it about QQQM. Showing unrelated headlines under a
+    ticker is worse than showing none, so the fallback is now an exact match on
+    the ticker alone, and a company name is used whenever one is known.
+    """
     resolved = resolve_stock_symbol(symbol)
-    return COMPANY_NEWS_QUERIES.get(resolved, f'"{resolved}" OR {resolved} stock')
+
+    known = COMPANY_NEWS_QUERIES.get(resolved)
+    if known:
+        return known
+
+    trimmed = strip_corporate_suffix(company_name or "")
+    if trimmed and trimmed.casefold() != resolved.casefold():
+        return f'"{trimmed}" OR {resolved}'
+
+    return f'"{resolved}"'
+
+
+def strip_corporate_suffix(name: str) -> str:
+    """'SanDisk Corporation' -> 'SanDisk'. Headlines use the short form."""
+    words = name.replace(",", " ").split()
+    while words and words[-1].replace(".", "").casefold() in CORPORATE_SUFFIXES:
+        words.pop()
+    return " ".join(words).strip()
 
 
 def _add_alias_matches(query: str, symbols: list[str]) -> None:

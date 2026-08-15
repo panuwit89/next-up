@@ -26,7 +26,7 @@ from typing import Any
 import requests
 
 from finance.config import get_settings
-from finance.services.symbols import resolve_stock_symbol
+from finance.services.symbols import COMPANY_NAMES, resolve_stock_symbol
 
 
 logger = logging.getLogger("finance.market_data")
@@ -64,6 +64,44 @@ TWELVEDATA_INTERVALS = {
 
 class MarketDataError(RuntimeError):
     """No provider could supply data for this symbol."""
+
+
+# Company names, so news queries can search the brand rather than the ticker.
+# Filled opportunistically from responses we already fetch; process-local, since
+# a name changes about as often as the company is renamed.
+_company_names: dict[str, str | None] = {}
+
+
+def get_company_name(symbol: str) -> str | None:
+    """Human-readable name for `symbol`, or None if no provider knows it."""
+    resolved = resolve_stock_symbol(symbol)
+
+    static = COMPANY_NAMES.get(resolved)
+    if static:
+        return static
+    if resolved in _company_names:
+        return _company_names[resolved]
+
+    try:
+        quote = _twelvedata_get("quote", {"symbol": resolved})
+        name = (quote.get("name") or "").strip() or None
+    except Exception as exc:
+        # Not cached: a missing key or a transient error would otherwise pin the
+        # weaker ticker-only query for the whole life of the process. Callers
+        # cache their own results, so this cannot turn into a hot loop.
+        logger.warning("Company-name lookup failed for %s: %s", resolved, exc)
+        return None
+
+    if name:
+        _company_names[resolved] = name
+    return name
+
+
+def _remember_name(symbol: str, name: Any) -> None:
+    """Cache a name seen in a price response — saves a dedicated lookup later."""
+    cleaned = str(name).strip() if name else ""
+    if cleaned:
+        _company_names.setdefault(symbol, cleaned)
 
 
 def get_chart(
@@ -145,6 +183,7 @@ def _from_yahoo(symbol: str, range_key: str, interval: str) -> dict[str, Any]:
     quote = ((result.get("indicators") or {}).get("quote") or [{}])[0]
     timestamps = result.get("timestamp") or []
     meta = result.get("meta") or {}
+    _remember_name(symbol, meta.get("longName") or meta.get("shortName"))
 
     candles = []
     for index, stamp in enumerate(timestamps):
@@ -257,6 +296,7 @@ def _from_twelvedata(symbol: str, interval: str, *, with_quote: bool) -> dict[st
     if with_quote:
         try:
             quote = _twelvedata_get("quote", {"symbol": symbol})
+            _remember_name(symbol, quote.get("name"))
             window = quote.get("fifty_two_week") or {}
             meta.update(
                 {

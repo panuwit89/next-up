@@ -3,6 +3,7 @@ from __future__ import annotations
 import requests
 
 from finance.config import get_settings
+from finance.services.market_data import get_company_name
 from finance.services.symbols import company_news_query, resolve_stock_symbol
 
 
@@ -14,8 +15,10 @@ def fetch_company_news(symbols: list[str], page_size_per_symbol: int = 3) -> lis
     headlines = []
     for symbol in symbols:
         resolved_symbol = resolve_stock_symbol(symbol)
+        # The company name makes the query search the brand ("SanDisk") instead
+        # of only the ticker, which rarely appears in a headline.
         for item in fetch_news_headlines(
-            query=company_news_query(resolved_symbol),
+            query=company_news_query(resolved_symbol, get_company_name(resolved_symbol)),
             page_size=page_size_per_symbol,
         ):
             item["symbol"] = resolved_symbol
