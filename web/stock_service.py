@@ -44,6 +44,7 @@ CACHE_TTL_NEWS = 21_600
 # P/E for a whole day over a blip, so failures are remembered only briefly —
 # long enough to stop hammering Yahoo, short enough to recover on its own.
 CACHE_TTL_PROFILE_ERROR = 600
+CACHE_TTL_NEWS_ERROR = 600
 
 
 def fetch_dashboard(symbols: list[str]) -> list[dict[str, Any]]:
@@ -187,18 +188,30 @@ def _profile(symbol: str) -> dict[str, Any]:
 
 
 def fetch_symbol_news(symbol: str, limit: int = 5) -> list[dict[str, Any]]:
-    """Company news. Returns [] instead of raising so the drawer still renders."""
+    """Company news. Returns [] instead of raising so the drawer still renders.
 
-    def load() -> list[dict[str, Any]]:
-        try:
-            from finance.services.news import fetch_company_news
+    Failures are remembered only briefly. Caching an empty result for the full
+    news TTL means a bad API key — or any transient blip — keeps the drawer
+    empty for six hours after the cause is fixed.
+    """
+    cache_key = f"news:{symbol}:{limit}"
+    hit = cache_get(cache_key)
+    if hit is not None:
+        return hit
 
-            return fetch_company_news([symbol], page_size_per_symbol=limit)
-        except Exception as exc:
-            logger.warning("News lookup failed for %s: %s", symbol, exc)
-            return []
+    try:
+        from finance.services.news import fetch_company_news
 
-    return cached(f"news:{symbol}:{limit}", CACHE_TTL_NEWS, load) or []
+        articles = fetch_company_news([symbol], page_size_per_symbol=limit)
+    except Exception as exc:
+        logger.warning("News lookup failed for %s: %s", symbol, exc)
+        cache_set(cache_key, [], CACHE_TTL_NEWS_ERROR)
+        return []
+
+    # An empty-but-successful result is also short-lived: the story count for a
+    # thinly covered ticker can change well inside the six-hour window.
+    cache_set(cache_key, articles, CACHE_TTL_NEWS if articles else CACHE_TTL_NEWS_ERROR)
+    return articles
 
 
 def _fetch_chart(symbol: str, range_key: str, interval: str) -> dict[str, Any]:

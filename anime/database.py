@@ -6,7 +6,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # เชื่อมต่อกับ MongoDB
-MONGO_URI = os.getenv("MONGO_URI")
+# .strip('"\'') เพราะ dotenv ตัดเครื่องหมายคำพูดให้ แต่ dashboard ของ host
+# ส่งค่าตามที่พิมพ์เป๊ะๆ — ถ้าวางค่าโดยติดเครื่องหมายคำพูดมาจะต่อไม่ติด
+MONGO_URI = (os.getenv("MONGO_URI") or "").strip().strip("\"'").strip()
 if not MONGO_URI:
     raise ValueError("ไม่พบ MONGO_URI ในไฟล์ .env หรือ Environment Variables")
 

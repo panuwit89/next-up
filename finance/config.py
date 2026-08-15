@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Any
 
 from dotenv import load_dotenv
 from pydantic import Field, field_validator
@@ -40,6 +41,29 @@ class Settings(BaseSettings):
 
     STOCK_SYMBOLS: str = "tsmc,nvidia"
     NEWS_QUERY: str = "technology OR finance OR stocks OR AI"
+
+    @field_validator(
+        "LINE_CHANNEL_SECRET",
+        "LINE_CHANNEL_ACCESS_TOKEN",
+        "LINE_USER_ID",
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
+        "NEWSAPI_KEY",
+        "TWELVEDATA_API_KEY",
+        mode="before",
+    )
+    @classmethod
+    def clean_credential(cls, value: Any) -> Any:
+        """Strip stray quotes and whitespace from secrets.
+
+        `python-dotenv` unquotes values from a .env file, but a hosting
+        dashboard passes whatever was typed verbatim — so pasting `"abc"` into
+        Render sends the quotes too. That cost an afternoon once: NewsAPI
+        answered 401 in production while the identical key worked locally.
+        """
+        if isinstance(value, str):
+            return value.strip().strip("\"'").strip()
+        return value
 
     @field_validator("STOCK_SYMBOLS")
     @classmethod
