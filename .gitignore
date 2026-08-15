@@ -7,3 +7,8 @@ __pycache__/
 # Python runtime has no Node, so the built dashboard must be committed.
 node_modules/
 frontend/.vite
+
+# Third-party design skills installed by `uipro init --ai claude`. Regenerable,
+# and ~2.9 MB of files that are not this project's work. `.claude/launch.json`
+# is ours, so it stays tracked.
+.claude/skills/
