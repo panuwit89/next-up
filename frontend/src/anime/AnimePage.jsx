@@ -180,14 +180,14 @@ export default function AnimePage({ openAnimeId, onOpenAnime }) {
           </p>
         </div>
 
-        <Input
+        {/* <Input
           aria-label="Filter tracked anime"
           icon={MagnifyingGlass}
           placeholder="Filter…"
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
           className="w-full sm:w-56"
-        />
+        /> */}
 
         <Button
           variant={selectMode ? "primary" : "secondary"}
@@ -201,9 +201,9 @@ export default function AnimePage({ openAnimeId, onOpenAnime }) {
           {selectMode ? "Cancel" : "Select"}
         </Button>
 
-        <Button variant="ghost" size="iconLg" onClick={reload} aria-label="Refresh watchlist">
+        {/* <Button variant="ghost" size="iconLg" onClick={reload} aria-label="Refresh watchlist">
           <ArrowClockwise size={17} aria-hidden="true" className={loading ? "animate-spin" : ""} />
-        </Button>
+        </Button> */}
 
         <Button variant="primary" onClick={() => setAddOpen(true)}>
           <Plus size={16} weight="bold" aria-hidden="true" />
