@@ -1,20 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  ArrowClockwise,
-  CaretRight,
-  CheckSquare,
-  MagnifyingGlass,
-  MonitorPlay,
-  Plus,
-  Trash,
-  X,
-} from "@phosphor-icons/react";
+import { CaretRight, CheckSquare, MonitorPlay, Plus, Trash, X } from "@phosphor-icons/react";
 
 import AddAnimeDialog from "./AddAnimeDialog.jsx";
 import AnimeCard from "./AnimeCard.jsx";
 import EpisodePicker from "./EpisodePicker.jsx";
 import Button from "../components/Button.jsx";
-import Input from "../components/Input.jsx";
 import { Badge, EmptyState, ErrorState, Skeleton } from "../components/Feedback.jsx";
 import { useToast } from "../components/Toast.jsx";
 import { getAnime, unsubscribeAnime } from "../lib/api.js";
@@ -67,7 +57,6 @@ export default function AnimePage({ openAnimeId, onOpenAnime }) {
   const toast = useToast();
   const { data, error, loading, reload, patch } = useAsync(getAnime);
 
-  const [filter, setFilter] = useState("");
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState(() => new Set());
   const [addOpen, setAddOpen] = useState(false);
@@ -93,19 +82,13 @@ export default function AnimePage({ openAnimeId, onOpenAnime }) {
     [allItems],
   );
 
-  const needle = filter.trim().toLowerCase();
   const sections = useMemo(
     () =>
       SECTIONS.map((section) => ({
         ...section,
-        items: (data?.groups?.[section.key] ?? []).filter(
-          (item) =>
-            !needle ||
-            item.title.toLowerCase().includes(needle) ||
-            item.title_english?.toLowerCase().includes(needle),
-        ),
+        items: data?.groups?.[section.key] ?? [],
       })),
-    [data, needle],
+    [data],
   );
 
   const openItem = openAnimeId
@@ -180,15 +163,6 @@ export default function AnimePage({ openAnimeId, onOpenAnime }) {
           </p>
         </div>
 
-        {/* <Input
-          aria-label="Filter tracked anime"
-          icon={MagnifyingGlass}
-          placeholder="Filter…"
-          value={filter}
-          onChange={(event) => setFilter(event.target.value)}
-          className="w-full sm:w-56"
-        /> */}
-
         <Button
           variant={selectMode ? "primary" : "secondary"}
           onClick={() => {
@@ -200,10 +174,6 @@ export default function AnimePage({ openAnimeId, onOpenAnime }) {
           {selectMode ? <X size={16} aria-hidden="true" /> : <CheckSquare size={16} aria-hidden="true" />}
           {selectMode ? "Cancel" : "Select"}
         </Button>
-
-        {/* <Button variant="ghost" size="iconLg" onClick={reload} aria-label="Refresh watchlist">
-          <ArrowClockwise size={17} aria-hidden="true" className={loading ? "animate-spin" : ""} />
-        </Button> */}
 
         <Button variant="primary" onClick={() => setAddOpen(true)}>
           <Plus size={16} weight="bold" aria-hidden="true" />
@@ -265,18 +235,6 @@ export default function AnimePage({ openAnimeId, onOpenAnime }) {
               }
             />
           ))}
-
-          {needle && sections.every((section) => section.items.length === 0) ? (
-            <EmptyState
-              icon={MagnifyingGlass}
-              title={`No tracked anime matches “${filter}”`}
-              action={
-                <Button variant="secondary" onClick={() => setFilter("")}>
-                  Clear filter
-                </Button>
-              }
-            />
-          ) : null}
         </div>
       )}
 

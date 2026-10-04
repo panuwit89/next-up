@@ -47,7 +47,9 @@ export default function AnimeCard({ item, index, selectMode, selected, onActivat
       aria-pressed={selectMode ? selected : undefined}
       style={{ "--i": index }}
       className={[
-        "group relative cursor-pointer rounded-card text-left",
+        // self-start: a stretched <button> centres its content vertically, so a
+        // two-line title in the row would push the shorter cards' covers down.
+        "group relative self-start cursor-pointer rounded-card text-left",
         "transition-transform duration-200 ease-out",
         "hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.985]",
       ].join(" ")}
