@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 
 /**
  * Data fetching with loading / error / refetch, guarding against out-of-order
@@ -72,8 +73,39 @@ export function useRoute() {
     return () => window.removeEventListener("hashchange", onChange);
   }, []);
 
-  const navigate = useCallback((tab, param) => {
-    window.location.hash = param ? `#/${tab}/${encodeURIComponent(param)}` : `#/${tab}`;
+  /**
+   * `pushState` instead of assigning `location.hash` so the state update is
+   * synchronous — a view transition needs the new DOM inside its callback.
+   * Back/forward still fire `hashchange`, which the listener above handles.
+   *
+   * `morphFrom`: an element whose snapshot morphs into whatever carries
+   * `view-transition-name: anime-cover` on the next screen.
+   */
+  const navigate = useCallback((tab, param, { morphFrom } = {}) => {
+    const update = () => {
+      window.history.pushState(
+        null,
+        "",
+        param ? `#/${tab}/${encodeURIComponent(param)}` : `#/${tab}`,
+      );
+      setRoute(parseHash());
+    };
+
+    const canMorph =
+      morphFrom &&
+      typeof document.startViewTransition === "function" &&
+      !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!canMorph) {
+      update();
+      return;
+    }
+
+    morphFrom.style.viewTransitionName = "anime-cover";
+    document.startViewTransition(() => {
+      flushSync(update);
+      // The new screen owns the name now; two holders would cancel the morph.
+      morphFrom.style.viewTransitionName = "";
+    });
   }, []);
 
   return { ...route, navigate };

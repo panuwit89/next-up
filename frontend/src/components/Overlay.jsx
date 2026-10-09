@@ -1,8 +1,54 @@
-import { useEffect, useRef } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "@phosphor-icons/react";
 
 import Button from "./Button.jsx";
+
+/**
+ * Close request for anything rendered inside a Modal or Drawer. Calling the
+ * parent's `onClose` directly would unmount the panel mid-frame; this plays the
+ * exit animation first.
+ */
+const OverlayCloseContext = createContext(null);
+
+export const useOverlayClose = () => useContext(OverlayCloseContext);
+
+// Longest exit animation plus slack, in case `animationend` never arrives.
+const EXIT_FALLBACK_MS = 260;
+
+/**
+ * Every caller mounts its dialog conditionally, so the panel cannot linger
+ * after `onClose`. Instead a close is *requested*: the exit animation plays,
+ * and `onClose` runs once it ends.
+ */
+function useClosing(onClose) {
+  const [closing, setClosing] = useState(false);
+  const doneRef = useRef(false);
+  const timerRef = useRef(null); // non-null once a close has been requested
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  const finish = useCallback(() => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    window.clearTimeout(timerRef.current);
+    onCloseRef.current();
+  }, []);
+
+  const requestClose = useCallback(() => {
+    if (timerRef.current !== null) return;
+    timerRef.current = window.setTimeout(finish, EXIT_FALLBACK_MS);
+    setClosing(true);
+  }, [finish]);
+
+  useEffect(() => () => window.clearTimeout(timerRef.current), []);
+
+  const onAnimationEnd = (event) => {
+    if (closing && event.target === event.currentTarget) finish();
+  };
+
+  return { closing, requestClose, onAnimationEnd };
+}
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -71,10 +117,10 @@ function useDialogBehaviour(open, panelRef, onClose) {
   }, [open, panelRef, onClose]);
 }
 
-function Scrim({ onClose }) {
+function Scrim({ onClose, closing }) {
   return (
     <div
-      className="animate-fade-in absolute inset-0 bg-black/65 backdrop-blur-[2px]"
+      className={`${closing ? "animate-fade-out" : "animate-fade-in"} absolute inset-0 bg-black/65 backdrop-blur-[2px]`}
       onClick={onClose}
       aria-hidden="true"
     />
@@ -84,7 +130,8 @@ function Scrim({ onClose }) {
 /** Centred dialog. Used for the episode picker and the add-anime search. */
 export function Modal({ open, onClose, title, subtitle, children, footer, size = "lg" }) {
   const panelRef = useRef(null);
-  useDialogBehaviour(open, panelRef, onClose);
+  const { closing, requestClose, onAnimationEnd } = useClosing(onClose);
+  useDialogBehaviour(open, panelRef, requestClose);
 
   if (!open) return null;
 
@@ -92,15 +139,17 @@ export function Modal({ open, onClose, title, subtitle, children, footer, size =
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <Scrim onClose={onClose} />
+      <Scrim onClose={requestClose} closing={closing} />
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={typeof title === "string" ? title : undefined}
         tabIndex={-1}
+        onAnimationEnd={onAnimationEnd}
         className={[
-          "animate-rise-in relative flex max-h-[92dvh] w-full flex-col",
+          "relative flex max-h-[92dvh] w-full flex-col",
+          closing ? "animate-sink-out pointer-events-none" : "animate-rise-in",
           "rounded-t-card sm:rounded-card border border-line bg-surface shadow-overlay",
           widths[size],
         ].join(" ")}
@@ -110,18 +159,20 @@ export function Modal({ open, onClose, title, subtitle, children, footer, size =
             <h2 className="truncate text-base font-semibold text-fg">{title}</h2>
             {subtitle ? <p className="mt-0.5 text-sm text-fg-muted">{subtitle}</p> : null}
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close dialog">
+          <Button variant="ghost" size="icon" onClick={requestClose} aria-label="Close dialog">
             <X size={18} weight="bold" aria-hidden="true" />
           </Button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
-          {children}
-        </div>
+        <OverlayCloseContext.Provider value={requestClose}>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
+            {children}
+          </div>
 
-        {footer ? (
-          <footer className="border-t border-line px-5 py-3.5">{footer}</footer>
-        ) : null}
+          {footer ? (
+            <footer className="border-t border-line px-5 py-3.5">{footer}</footer>
+          ) : null}
+        </OverlayCloseContext.Provider>
       </div>
     </div>,
     document.body,
@@ -131,26 +182,29 @@ export function Modal({ open, onClose, title, subtitle, children, footer, size =
 /** Right-hand panel. Used for stock detail — full width on phones. */
 export function Drawer({ open, onClose, label, children }) {
   const panelRef = useRef(null);
-  useDialogBehaviour(open, panelRef, onClose);
+  const { closing, requestClose, onAnimationEnd } = useClosing(onClose);
+  useDialogBehaviour(open, panelRef, requestClose);
 
   if (!open) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex justify-end">
-      <Scrim onClose={onClose} />
+      <Scrim onClose={requestClose} closing={closing} />
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={label}
         tabIndex={-1}
+        onAnimationEnd={onAnimationEnd}
         className={[
-          "animate-slide-in-right relative flex h-full w-full flex-col",
+          "relative flex h-full w-full flex-col",
+          closing ? "animate-slide-out-right pointer-events-none" : "animate-slide-in-right",
           "border-l border-line bg-surface shadow-overlay",
           "sm:max-w-xl lg:max-w-2xl",
         ].join(" ")}
       >
-        {children}
+        <OverlayCloseContext.Provider value={requestClose}>{children}</OverlayCloseContext.Provider>
       </div>
     </div>,
     document.body,

@@ -149,6 +149,9 @@ export default function PriceChart({
 
   const stroke = positive ? "var(--color-up)" : "var(--color-down)";
   const gradientId = positive ? "spark-up" : "spark-down";
+  // Keyed on the dataset, not the path: a new range replays the entrance, a
+  // resize (same candles, new width) does not.
+  const drawKey = `${interval}-${candles.length}-${candles[0].timestamp}`;
 
   const pointFromClientX = (clientX) => {
     const rect = wrapRef.current.getBoundingClientRect();
@@ -216,9 +219,17 @@ export default function PriceChart({
           </>
         ) : null}
 
-        <path d={model.areaPath} fill={`url(#${gradientId})`} />
         <path
+          key={`area-${drawKey}`}
+          d={model.areaPath}
+          fill={`url(#${gradientId})`}
+          className="animate-chart-fade"
+        />
+        <path
+          key={`line-${drawKey}`}
           d={model.linePath}
+          pathLength="1"
+          className="animate-draw"
           fill="none"
           stroke={stroke}
           strokeWidth="1.75"
@@ -229,8 +240,9 @@ export default function PriceChart({
         {model.emaPaths.map((series) =>
           series.path ? (
             <path
-              key={series.key}
+              key={`${series.key}-${drawKey}`}
               d={series.path}
+              className="animate-chart-fade"
               fill="none"
               stroke={series.color}
               strokeWidth="1.25"
@@ -242,22 +254,24 @@ export default function PriceChart({
         )}
 
         {/* Volume histogram, tinted per bar by that bar's own direction. */}
-        {candles.map((candle, index) => {
-          const height =
-            ((candle.volume ?? 0) / model.maxVolume) * (VOLUME_BOTTOM - VOLUME_TOP);
-          const rising = index === 0 || candle.close >= candles[index - 1].close;
-          return (
-            <rect
-              key={candle.timestamp}
-              x={model.xAt(index) - model.barWidth / 2}
-              y={VOLUME_BOTTOM - height}
-              width={model.barWidth}
-              height={Math.max(0, height)}
-              fill={rising ? "var(--color-up)" : "var(--color-down)"}
-              opacity={cursor === index ? 0.85 : 0.32}
-            />
-          );
-        })}
+        <g key={`volume-${drawKey}`} className="animate-bar-grow">
+          {candles.map((candle, index) => {
+            const height =
+              ((candle.volume ?? 0) / model.maxVolume) * (VOLUME_BOTTOM - VOLUME_TOP);
+            const rising = index === 0 || candle.close >= candles[index - 1].close;
+            return (
+              <rect
+                key={candle.timestamp}
+                x={model.xAt(index) - model.barWidth / 2}
+                y={VOLUME_BOTTOM - height}
+                width={model.barWidth}
+                height={Math.max(0, height)}
+                fill={rising ? "var(--color-up)" : "var(--color-down)"}
+                opacity={cursor === index ? 0.85 : 0.32}
+              />
+            );
+          })}
+        </g>
 
         {model.ticks.map((tick) => (
           <text

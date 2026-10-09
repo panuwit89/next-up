@@ -12,13 +12,21 @@ const ToastContext = createContext(() => {});
 export const useToast = () => useContext(ToastContext);
 
 const DURATIONS = { success: 2600, error: 5000 };
+const LEAVE_MS = 160; // a little over the 140ms sink-out
 
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
   const nextId = useRef(0);
 
+  // Mark first so the exit animation can play, then drop it from the list.
   const dismiss = useCallback((id) => {
-    setToasts((current) => current.filter((toast) => toast.id !== id));
+    setToasts((current) =>
+      current.map((toast) => (toast.id === id ? { ...toast, leaving: true } : toast)),
+    );
+    window.setTimeout(
+      () => setToasts((current) => current.filter((toast) => toast.id !== id)),
+      LEAVE_MS,
+    );
   }, []);
 
   const notify = useCallback(
@@ -52,7 +60,8 @@ export function ToastProvider({ children }) {
           <div
             key={toast.id}
             className={[
-              "animate-rise-in pointer-events-auto flex max-w-md items-center gap-2.5",
+              toast.leaving ? "animate-sink-out pointer-events-none" : "animate-rise-in pointer-events-auto",
+              "flex max-w-md items-center gap-2.5",
               "rounded-control border px-3.5 py-2.5 text-sm shadow-overlay backdrop-blur",
               toast.tone === "error"
                 ? "border-danger/40 bg-[#2a1518]/95 text-danger"

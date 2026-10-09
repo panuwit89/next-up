@@ -4,7 +4,7 @@ import { ArrowSquareOut, CaretDown, CaretUp, Newspaper, Trash, X } from "@phosph
 import PriceChart from "./PriceChart.jsx";
 import Button from "../components/Button.jsx";
 import { Badge, EmptyState, ErrorState, Skeleton } from "../components/Feedback.jsx";
-import { Drawer } from "../components/Overlay.jsx";
+import { Drawer, useOverlayClose } from "../components/Overlay.jsx";
 import { getStockDetail, getStockNews } from "../lib/api.js";
 import { useAsync } from "../lib/hooks.js";
 import {
@@ -70,9 +70,7 @@ export default function StockDrawer({ symbol, onClose, onRemove }) {
             {data?.company_name ?? <span className="opacity-0">placeholder</span>}
           </p>
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close details">
-          <X size={18} weight="bold" aria-hidden="true" />
-        </Button>
+        <CloseButton />
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
@@ -166,6 +164,16 @@ export default function StockDrawer({ symbol, onClose, onRemove }) {
         )}
       </div>
     </Drawer>
+  );
+}
+
+/** Rendered inside the Drawer so it can request an animated close. */
+function CloseButton() {
+  const requestClose = useOverlayClose();
+  return (
+    <Button variant="ghost" size="icon" onClick={requestClose} aria-label="Close details">
+      <X size={18} weight="bold" aria-hidden="true" />
+    </Button>
   );
 }
 

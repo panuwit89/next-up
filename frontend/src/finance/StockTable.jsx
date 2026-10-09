@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { CaretDown, CaretUp, Trash, WarningCircle } from "@phosphor-icons/react";
 
 import { formatNumber, formatPercent, formatPrice } from "../lib/format.js";
@@ -102,6 +103,23 @@ function Row({ row, index, onOpen, onRemove, removing }) {
   const positive = (changePct ?? 0) >= 0;
   const DirectionIcon = positive ? CaretUp : CaretDown;
 
+  const rowRef = useRef(null);
+  const previousPrice = useRef(price);
+
+  // Tint the row green/red for a moment when a refresh moves its price. The
+  // first render only records the price, so loading the page never flashes.
+  useEffect(() => {
+    const before = previousPrice.current;
+    previousPrice.current = price;
+    const element = rowRef.current;
+    if (!element || typeof before !== "number" || typeof price !== "number" || before === price) {
+      return;
+    }
+    element.classList.remove("animate-flash-up", "animate-flash-down");
+    void element.offsetWidth; // restart the animation if one is still running
+    element.classList.add(price > before ? "animate-flash-up" : "animate-flash-down");
+  }, [price]);
+
   if (error) {
     return (
       <tr style={{ "--i": index }} className="border-b border-line last:border-0">
@@ -127,6 +145,7 @@ function Row({ row, index, onOpen, onRemove, removing }) {
 
   return (
     <tr
+      ref={rowRef}
       style={{ "--i": index }}
       onClick={onOpen}
       className="cursor-pointer border-b border-line transition-colors last:border-0 hover:bg-surface-2"

@@ -22,6 +22,10 @@ export default function FinancePage({ openSymbol, onOpenSymbol }) {
   const [removing, setRemoving] = useState(null);
 
   const rows = data?.stocks ?? [];
+  // A refresh keeps the table on screen (useAsync holds the previous data), so
+  // rows stay mounted and can flash their price changes instead of blinking
+  // back to a skeleton.
+  const firstLoad = loading && !data;
   const sorted = useMemo(() => sortRows(rows, sort), [rows, sort]);
 
   const movers = useMemo(() => {
@@ -92,7 +96,7 @@ export default function FinancePage({ openSymbol, onOpenSymbol }) {
         <div className="mr-auto">
           <h1 className="text-xl font-semibold tracking-tight text-fg">Finance</h1>
           <p className="mt-0.5 text-sm text-fg-muted">
-            {loading ? (
+            {firstLoad ? (
               "Loading watchlist…"
             ) : movers ? (
               <>
@@ -137,7 +141,7 @@ export default function FinancePage({ openSymbol, onOpenSymbol }) {
         </Button>
       </div>
 
-      {loading ? (
+      {firstLoad ? (
         <TableSkeleton />
       ) : error ? (
         <ErrorState error={error} onRetry={reload} />

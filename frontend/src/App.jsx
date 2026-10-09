@@ -91,7 +91,7 @@ export default function App() {
           ) : (
             <AnimePage
               openAnimeId={param ? Number(param) : null}
-              onOpenAnime={(animeId) => navigate("anime", animeId)}
+              onOpenAnime={(animeId, morphFrom) => navigate("anime", animeId, { morphFrom })}
             />
           )}
         </main>

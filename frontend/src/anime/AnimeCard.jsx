@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { Check, ImageBroken, WarningCircle } from "@phosphor-icons/react";
 
 import { Badge } from "../components/Feedback.jsx";
@@ -24,6 +25,9 @@ export default function AnimeCard({ item, index, selectMode, selected, onActivat
     unavailable,
   } = item;
 
+  // Handed to onActivate so the cover can morph into the episode picker's.
+  const coverRef = useRef(null);
+
   const available = total ?? latest ?? 0;
   const percent = available > 0 ? Math.min(100, (watched / available) * 100) : 0;
   // Show the time the episode actually reaches the user's service, not AniList's.
@@ -42,7 +46,7 @@ export default function AnimeCard({ item, index, selectMode, selected, onActivat
   return (
     <button
       type="button"
-      onClick={onActivate}
+      onClick={() => onActivate(coverRef.current)}
       aria-label={label}
       aria-pressed={selectMode ? selected : undefined}
       style={{ "--i": index }}
@@ -55,6 +59,7 @@ export default function AnimeCard({ item, index, selectMode, selected, onActivat
       ].join(" ")}
     >
       <div
+        ref={coverRef}
         className={[
           "relative aspect-[2/3] overflow-hidden rounded-card border bg-surface-2",
           "transition-colors duration-150",

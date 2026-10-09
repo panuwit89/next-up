@@ -230,8 +230,8 @@ export default function AnimePage({ openAnimeId, onOpenAnime }) {
               }
               selectMode={selectMode}
               selected={selected}
-              onActivate={(item) =>
-                selectMode ? toggleSelected(item.anime_id) : onOpenAnime(item.anime_id)
+              onActivate={(item, cover) =>
+                selectMode ? toggleSelected(item.anime_id) : onOpenAnime(item.anime_id, cover)
               }
             />
           ))}
@@ -294,7 +294,7 @@ function Section({ section, open, onToggle, selectMode, selected, onActivate }) 
               index={Math.min(index, 12)}
               selectMode={selectMode}
               selected={selected.has(item.anime_id)}
-              onActivate={() => onActivate(item)}
+              onActivate={(cover) => onActivate(item, cover)}
             />
           ))}
         </div>

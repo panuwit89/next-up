@@ -50,6 +50,7 @@
 
   /* Motion — micro-interactions 160ms, overlays 220ms in / 140ms out. */
   --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-soft: cubic-bezier(0.4, 0, 1, 1);
 }
 
 @layer base {
@@ -152,6 +153,70 @@
     animation: slide-in-right 240ms var(--ease-out-soft) both;
   }
 
+  /* Exits mirror the entrances, faster and easing in: the user has already
+     decided to leave, so the motion should get out of the way. */
+  @keyframes fade-out {
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes sink-out {
+    to {
+      opacity: 0;
+      transform: translateY(8px) scale(0.985);
+    }
+  }
+
+  @keyframes slide-out-right {
+    to {
+      transform: translateX(100%);
+    }
+  }
+
+  .animate-fade-out {
+    animation: fade-out 140ms var(--ease-in-soft) both;
+  }
+  .animate-sink-out {
+    animation: sink-out 140ms var(--ease-in-soft) both;
+  }
+  .animate-slide-out-right {
+    animation: slide-out-right 160ms var(--ease-in-soft) both;
+  }
+
+  /* Price chart: the line draws itself left to right (needs pathLength="1"),
+     then the area and EMA overlays settle in behind it. */
+  @keyframes draw-line {
+    from {
+      stroke-dashoffset: 1;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes bar-grow {
+    from {
+      transform: scaleY(0);
+    }
+    to {
+      transform: none;
+    }
+  }
+
+  .animate-draw {
+    stroke-dasharray: 1;
+    animation: draw-line 700ms var(--ease-out-soft) both;
+  }
+  .animate-chart-fade {
+    animation: fade-in 400ms var(--ease-out-soft) 250ms both;
+  }
+  .animate-bar-grow rect {
+    transform-box: fill-box;
+    transform-origin: bottom;
+    animation: bar-grow 400ms var(--ease-out-soft) both;
+  }
+
   /* Grid/list entrance stagger: 30ms apart, capped so long lists stay snappy.
      Opacity only — a translate/scale entrance leaves cards at momentarily
      different offsets and sizes, which reads as a broken grid rather than as
@@ -159,6 +224,28 @@
   .stagger > * {
     animation: fade-in 220ms var(--ease-out-soft) both;
     animation-delay: calc(var(--i, 0) * 30ms);
+  }
+
+  /* A watchlist row whose price moved since the last refresh. Declared after
+     .stagger on purpose: the rows are stagger children, and at equal
+     specificity the later rule wins. */
+  @keyframes flash-up {
+    from {
+      background-color: color-mix(in srgb, var(--color-up) 18%, transparent);
+    }
+  }
+
+  @keyframes flash-down {
+    from {
+      background-color: color-mix(in srgb, var(--color-down) 18%, transparent);
+    }
+  }
+
+  .animate-flash-up {
+    animation: flash-up 900ms ease-out;
+  }
+  .animate-flash-down {
+    animation: flash-down 900ms ease-out;
   }
 
   /* Dense on a mouse, thumb-friendly on a touch screen. */
@@ -182,6 +269,18 @@
     background-size: 200% 100%;
     animation: shimmer 1.4s linear infinite;
   }
+}
+
+/* Card → episode picker: only the cover morphs. The rest of the page swaps
+   instantly so the modal's own rise-in is the only other motion. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+::view-transition-group(anime-cover) {
+  animation-duration: 320ms;
+  animation-timing-function: var(--ease-out-soft);
 }
 
 /* Honour the OS setting: keep the UI legible, drop the movement. */

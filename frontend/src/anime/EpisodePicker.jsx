@@ -154,7 +154,9 @@ export default function EpisodePicker({
             alt=""
             width={80}
             height={120}
-            loading="lazy"
+            // Target of the card-cover morph (see useRoute). Eager, because the
+            // transition snapshots it immediately — it is already cached anyway.
+            style={{ viewTransitionName: "anime-cover" }}
             className="hidden h-[120px] w-20 shrink-0 rounded-control border border-line object-cover sm:block"
           />
         ) : null}
