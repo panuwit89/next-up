@@ -53,8 +53,9 @@ with a bar showing where the price sits in its 20-day range and buttons to the
 news story and the dashboard chart.
 
 The cards are laid out in code from the data above, so every number on them is
-the real figure. **Gemini** only writes the one-line Thai note on each card and
-the overview sentence — no buy/sell advice, no invented news. It is retried on
+the real figure. An LLM — **OpenAI `gpt-6-luna`** by default, Gemini optionally —
+only writes the one-line Thai note on each card and the overview sentence, as
+JSON — no buy/sell advice, no invented news. It is retried on
 429/5xx, and if it still fails the cards carry the raw headline instead, so a
 brief always arrives.
 
@@ -97,7 +98,7 @@ what the Monday LINE brief covers.
                     ┌───────────────┴──────────────┐
                     │  MongoDB Atlas               │
                     │  AniList · Yahoo · Twelve    │
-                    │  Data · NewsAPI · Gemini     │
+                    │  Data · NewsAPI · OpenAI     │
                     └──────────────────────────────┘
 ```
 
@@ -137,7 +138,7 @@ anime/                Discord bot — behaviour unchanged from the original proj
 
 finance/              LINE bot
   brief.py            fetch prices → fetch news → summarise → send
-  summarizer.py       Gemini notes (JSON) with retries, raw-headline fallback
+  summarizer.py       LLM notes (OpenAI or Gemini, JSON) with retries, raw-headline fallback
   brief_format.py     lays out the Flex carousel from the quote data
   scheduler.py        weekly cron (Mon 10:00 Asia/Bangkok)
   line_client.py      LINE Messaging API wrapper (push, reply, verify signature)
@@ -257,11 +258,12 @@ Dashboard at `http://localhost:8080`, API docs at `/docs`.
 | `DISCORD_TOKEN` | Discord bot |
 | `MONGO_URI` | everything (note: `MONGO_URI`, not `MONGODB_URI`) |
 | `LINE_CHANNEL_SECRET`, `LINE_CHANNEL_ACCESS_TOKEN`, `LINE_USER_ID` | LINE bot |
-| `GEMINI_API_KEY` | brief summarisation |
+| `OPENAI_API_KEY` | brief notes (or `GEMINI_API_KEY` with `LLM_PROVIDER=gemini`) |
 | `NEWSAPI_KEY` | headlines |
 | `TWELVEDATA_API_KEY` | prices — required in production, see the fallback note above |
 
-Optional: `GEMINI_MODEL`, `SCHEDULE_DAY_OF_WEEK` / `SCHEDULE_HOUR` /
+Optional: `OPENAI_MODEL` (default `gpt-6-luna`), `OPENAI_REASONING_EFFORT`
+(default `low`), `GEMINI_MODEL`, `SCHEDULE_DAY_OF_WEEK` / `SCHEDULE_HOUR` /
 `SCHEDULE_MINUTE`, `TIMEZONE`, `NEWS_QUERY`, `DASHBOARD_URL` (base URL for the
 cards' chart buttons; on Render `RENDER_EXTERNAL_URL` is used automatically).
 

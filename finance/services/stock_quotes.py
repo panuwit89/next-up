@@ -6,8 +6,8 @@ import requests
 import yfinance as yf
 
 from finance.config import get_settings
-from finance.services.market_data import get_chart
-from finance.services.symbols import company_name_for_symbol, resolve_stock_symbol
+from finance.services.market_data import get_chart, get_company_name
+from finance.services.symbols import company_name_for_symbol, resolve_stock_symbol, strip_corporate_suffix
 
 
 YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
@@ -190,7 +190,12 @@ def _fetch_one_symbol_from_yahoo_chart(symbol: str) -> dict[str, Any]:
 def _enrich_quote(quote: dict[str, Any]) -> dict[str, Any]:
     symbol = str(quote.get("symbol") or "")
     enriched = dict(quote)
-    enriched["company_name"] = company_name_for_symbol(symbol)
+    # The static COMPANY_NAMES map only knows a handful of tickers. The chart
+    # call just made has usually cached the provider's name already, so this
+    # rarely costs a request; the static map is the last resort.
+    enriched["company_name"] = (
+        strip_corporate_suffix(get_company_name(symbol) or "") or company_name_for_symbol(symbol)
+    )
     enriched.update(_fetch_fundamental_snapshot(symbol))
     return enriched
 

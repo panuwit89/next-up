@@ -22,8 +22,12 @@ class Settings(BaseSettings):
     LINE_CHANNEL_ACCESS_TOKEN: str = ""
     LINE_USER_ID: str = ""
 
-    # LLM — Gemini (Google Generative Language REST API)
-    LLM_PROVIDER: str = "gemini"
+    # LLM — "openai" (Responses API) or "gemini" (Generative Language API)
+    LLM_PROVIDER: str = "openai"
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-6-luna"
+    # gpt-6-luna accepts none..max; gpt-6.1-sol starts at low, so low works for both.
+    OPENAI_REASONING_EFFORT: str = "low"
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-3.5-flash"
     GOOGLE_API_KEY: str = ""
@@ -51,6 +55,7 @@ class Settings(BaseSettings):
         "LINE_CHANNEL_SECRET",
         "LINE_CHANNEL_ACCESS_TOKEN",
         "LINE_USER_ID",
+        "OPENAI_API_KEY",
         "GEMINI_API_KEY",
         "GOOGLE_API_KEY",
         "NEWSAPI_KEY",
@@ -104,6 +109,8 @@ class Settings(BaseSettings):
 
     @property
     def has_llm_key(self) -> bool:
+        if self.normalized_llm_provider == "openai":
+            return bool(self.OPENAI_API_KEY)
         if self.normalized_llm_provider == "gemini":
             return bool(self.gemini_api_key)
         return False

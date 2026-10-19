@@ -3,7 +3,7 @@
 The first card is an overview of the whole watchlist, then one swipeable card
 per stock, biggest movers first.
 
-Every number shown here comes straight from the quote data. Gemini only
+Every number shown here comes straight from the quote data. The LLM only
 supplies the one-line notes, so a model slip can't put a wrong price in front
 of the reader.
 """
@@ -153,10 +153,7 @@ def _overview_bubble(
         "footer": {
             "type": "box",
             "layout": "vertical",
-            "contents": [
-                _text("ปัดเพื่อดูรายตัว →", size="xs", color=MUTED, align="end"),
-                _text(DISCLAIMER, size="xxs", color=SUBTLE, wrap=True, margin="sm"),
-            ],
+            "contents": [_text(DISCLAIMER, size="xxs", color=SUBTLE, wrap=True)],
         },
     }
 

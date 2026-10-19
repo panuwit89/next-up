@@ -16,14 +16,15 @@ from finance.services.symbols import extract_stock_symbols
 
 logger = logging.getLogger("finance_bot.summarizer")
 
+OPENAI_URL = "https://api.openai.com/v1/responses"
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-# Gemini answers 503 ("model overloaded") in short bursts; a couple of spaced
-# retries usually get through before falling back to raw headlines.
-GEMINI_RETRY_STATUSES = {429, 500, 502, 503, 504}
-GEMINI_RETRY_DELAYS = (3, 8)  # seconds before the 2nd and 3rd attempts
+# Both providers answer 429/503 ("overloaded") in short bursts; a couple of
+# spaced retries usually get through before falling back to raw headlines.
+RETRY_STATUSES = {429, 500, 502, 503, 504}
+RETRY_DELAYS = (3, 8)  # seconds before the 2nd and 3rd attempts
 
-# Gemini no longer writes the message itself: the layout (and every number in
-# it) is built in finance.brief_format. Gemini only writes the short notes.
+# The LLM no longer writes the message itself: the layout (and every number in
+# it) is built in finance.brief_format. The LLM only writes the short notes.
 SYSTEM_PROMPT = """
 You write short Thai notes for a stock brief in a LINE bot.
 The app already shows the reader each stock's price, % change, 20-day range and
@@ -55,7 +56,11 @@ Stock / financial / analyst / technical data:
 
 Company news:
 {news_data}
+
+Reply with the JSON object described in the instructions.
 """.strip()
+# OpenAI's json_object mode rejects a request unless the *input* (not just the
+# instructions) mentions JSON — hence the closing line above.
 
 
 def summarize_company_brief(
@@ -64,7 +69,7 @@ def summarize_company_brief(
     news_data: Any,
     query: str | None = None,
 ) -> CompanyBrief:
-    """Build the brief. Notes come from Gemini when a key is set, otherwise from raw headlines."""
+    """Build the brief. Notes come from the LLM when a key is set, otherwise from raw headlines."""
     settings = get_settings()
     stocks = _filter_stocks(stock_data, extract_stock_symbols(query))
     news_by_symbol = _group_news_by_symbol(news_data)
@@ -74,7 +79,7 @@ def summarize_company_brief(
     overview = ""
     if settings.has_llm_key and symbols:
         try:
-            notes, overview = _gemini_notes(
+            notes, overview = _llm_notes(
                 settings=settings,
                 stocks=stocks,
                 news_data=news_data,
@@ -83,7 +88,7 @@ def summarize_company_brief(
             )
         except Exception as exc:
             # Never let an LLM/network hiccup drop the scheduled brief — fall back to raw headlines.
-            logger.warning("Gemini notes failed, using raw headlines: %s", exc)
+            logger.warning("%s notes failed, using raw headlines: %s", settings.normalized_llm_provider, exc)
 
     return build_company_brief(
         stocks=stocks,
@@ -99,7 +104,7 @@ def summarize_company_brief(
 summarize_daily_brief = summarize_company_brief
 
 
-def _gemini_notes(
+def _llm_notes(
     *,
     settings: Any,
     stocks: list[dict[str, Any]],
@@ -114,18 +119,69 @@ def _gemini_notes(
         stock_data=_to_json(stocks),
         news_data=_to_json(news_data),
     )
+    if settings.normalized_llm_provider == "openai":
+        content = _openai_text(settings, human_message)
+    else:
+        content = _gemini_text(settings, human_message)
+    return _parse_notes(content, symbols)
 
-    request_body = {
-        "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
-        "contents": [
-            {"role": "user", "parts": [{"text": human_message}]},
-        ],
-        "generationConfig": {
-            "temperature": 0.2,
-            "responseMimeType": "application/json",
+
+def _openai_text(settings: Any, human_message: str) -> str:
+    payload = _post_with_retries(
+        "OpenAI",
+        OPENAI_URL,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
         },
-    }
-    payload = _post_gemini(settings, request_body)
+        body={
+            "model": settings.OPENAI_MODEL,
+            "instructions": SYSTEM_PROMPT,
+            "input": human_message,
+            "reasoning": {"effort": settings.OPENAI_REASONING_EFFORT},
+            "text": {"format": {"type": "json_object"}},
+        },
+    )
+
+    if payload.get("status") == "incomplete":
+        raise RuntimeError(f"OpenAI response incomplete: {payload.get('incomplete_details')}")
+
+    # The REST payload has no `output_text` shortcut (that's an SDK helper):
+    # the text sits in the message items, next to any reasoning items.
+    texts = []
+    for item in payload.get("output") or []:
+        if item.get("type") != "message":
+            continue
+        for part in item.get("content") or []:
+            if part.get("type") == "refusal":
+                raise RuntimeError(f"OpenAI refused: {part.get('refusal')}")
+            if part.get("type") == "output_text":
+                texts.append(part.get("text") or "")
+    content = "".join(texts).strip()
+    if not content:
+        raise RuntimeError("OpenAI returned an empty message.")
+    return content
+
+
+def _gemini_text(settings: Any, human_message: str) -> str:
+    payload = _post_with_retries(
+        "Gemini",
+        GEMINI_URL.format(model=settings.GEMINI_MODEL),
+        headers={
+            "Content-Type": "application/json",
+            "x-goog-api-key": settings.gemini_api_key,
+        },
+        body={
+            "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+            "contents": [
+                {"role": "user", "parts": [{"text": human_message}]},
+            ],
+            "generationConfig": {
+                "temperature": 0.2,
+                "responseMimeType": "application/json",
+            },
+        },
+    )
 
     candidates = payload.get("candidates") or []
     if not candidates:
@@ -136,37 +192,33 @@ def _gemini_notes(
     content = "".join(part.get("text", "") for part in parts).strip()
     if not content:
         raise RuntimeError("Gemini returned an empty message.")
-    return _parse_notes(content, symbols)
+    return content
 
 
-def _post_gemini(settings: Any, request_body: dict[str, Any]) -> dict[str, Any]:
-    """POST to Gemini, retrying the transient "overloaded" answers (429/5xx).
+def _post_with_retries(label: str, url: str, *, headers: dict[str, str], body: dict[str, Any]) -> dict[str, Any]:
+    """POST to an LLM API, retrying the transient "overloaded" answers (429/5xx).
 
     Timeouts are not retried: the on-demand path answers a LINE reply token
     that expires after about a minute, and three 30s timeouts would outlive it.
     """
-    for attempt, delay in enumerate((*GEMINI_RETRY_DELAYS, None), start=1):
+    for attempt, delay in enumerate((*RETRY_DELAYS, None), start=1):
         try:
-            response = requests.post(
-                GEMINI_URL.format(model=settings.GEMINI_MODEL),
-                headers={
-                    "Content-Type": "application/json",
-                    "x-goog-api-key": settings.gemini_api_key,
-                },
-                json=request_body,
-                timeout=30,
-            )
+            response = requests.post(url, headers=headers, json=body, timeout=30)
         except requests.ConnectionError as exc:
             # ConnectTimeout is also a ConnectionError; let it fail like any timeout.
             if delay is None or isinstance(exc, requests.Timeout):
                 raise
-            logger.warning("Gemini attempt %s failed (%s), retrying in %ss.", attempt, exc, delay)
+            logger.warning("%s attempt %s failed (%s), retrying in %ss.", label, attempt, exc, delay)
         else:
-            if response.status_code not in GEMINI_RETRY_STATUSES or delay is None:
-                response.raise_for_status()
+            if response.status_code not in RETRY_STATUSES or delay is None:
+                if not response.ok:
+                    # Both APIs explain a 4xx (bad model name, bad param) in the body.
+                    raise requests.HTTPError(
+                        f"{label} HTTP {response.status_code}: {response.text[:300]}", response=response
+                    )
                 return response.json()
             logger.warning(
-                "Gemini attempt %s returned HTTP %s, retrying in %ss.", attempt, response.status_code, delay
+                "%s attempt %s returned HTTP %s, retrying in %ss.", label, attempt, response.status_code, delay
             )
         time.sleep(delay)
     raise AssertionError("unreachable")
@@ -177,7 +229,7 @@ def _parse_notes(content: str, symbols: list[str]) -> tuple[dict[str, str], str]
     cleaned = content.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
     data = json.loads(cleaned)
     if not isinstance(data, dict):
-        raise RuntimeError("Gemini notes were not a JSON object.")
+        raise RuntimeError("LLM notes were not a JSON object.")
 
     raw_notes = data.get("notes") if isinstance(data.get("notes"), dict) else {}
     notes = {

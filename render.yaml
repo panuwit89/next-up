@@ -20,13 +20,15 @@ services:
       - key: LINE_USER_ID
         sync: false
 
-      # ---- LLM (Gemini) ----
+      # ---- LLM (OpenAI; set LLM_PROVIDER=gemini + GEMINI_API_KEY to switch back) ----
       - key: LLM_PROVIDER
-        value: gemini
-      - key: GEMINI_API_KEY
+        value: openai
+      - key: OPENAI_API_KEY
         sync: false
-      - key: GEMINI_MODEL
-        value: gemini-3.5-flash
+      - key: OPENAI_MODEL
+        value: gpt-6-luna
+      - key: OPENAI_REASONING_EFFORT
+        value: low
 
       # ---- News ----
       - key: NEWSAPI_KEY
