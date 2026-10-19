@@ -72,9 +72,10 @@ def _fetch_one_symbol(symbol: str) -> dict[str, Any]:
 
         meta = chart.get("meta") or {}
         price = meta.get("regular_market_price") or closes[-1]
-        previous_close = meta.get("previous_close")
-        if previous_close is None and len(closes) > 1:
-            previous_close = closes[-2]
+        # Yahoo's meta "previous_close" is chartPreviousClose — the close before
+        # the whole 3-month range, not yesterday's — so it made change_pct a
+        # 3-month change. The previous candle is the real previous session.
+        previous_close = closes[-2] if len(closes) > 1 else meta.get("previous_close")
 
         change_pct = None
         if previous_close:
@@ -84,6 +85,7 @@ def _fetch_one_symbol(symbol: str) -> dict[str, Any]:
             "symbol": symbol,
             "price": round(price, 2),
             "change_pct": round(change_pct, 2) if change_pct is not None else None,
+            "week_change_pct": _week_change_pct(price, closes),
             "volume": chart["candles"][-1].get("volume") or 0,
             "technical": _technical_snapshot(closes),
         }
@@ -119,6 +121,7 @@ def _fetch_one_symbol_from_yfinance(symbol: str) -> dict[str, Any]:
         "symbol": symbol,
         "price": round(price, 2),
         "change_pct": round(change_pct, 2) if change_pct is not None else None,
+        "week_change_pct": _week_change_pct(price, closes),
         "volume": int(latest.get("Volume", 0) or 0),
         "technical": _technical_snapshot(closes),
     }
@@ -250,8 +253,10 @@ def _technical_snapshot(closes: list[Any]) -> dict[str, Any] | None:
     if not valid_closes:
         return None
 
-    # Support/resistance = the last 20 sessions' range.
-    recent = valid_closes[-20:]
+    # Support/resistance = the range of the 20 sessions *before* the latest one.
+    # Including the latest close made support equal the price whenever it set a
+    # new 20-day low, so the brief could never say a level had been broken.
+    recent = valid_closes[-21:-1] if len(valid_closes) > 1 else valid_closes
     return {
         "support": round(min(recent), 2),
         "resistance": round(max(recent), 2),
@@ -269,6 +274,14 @@ def _simple_moving_average(closes: list[float], window: int) -> float | None:
     if len(closes) < window:
         return None
     return round(sum(closes[-window:]) / window, 2)
+
+
+def _week_change_pct(price: Any, closes: list[Any]) -> float | None:
+    """% change against the close five sessions back (one trading week)."""
+    valid_closes = [value for value in (_safe_float(close) for close in closes) if value is not None]
+    if len(valid_closes) < 6:
+        return None
+    return _pct_change(price, valid_closes[-6])
 
 
 def _latest_value_index(values: list[Any]) -> int | None:

@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     STOCK_SYMBOLS: str = "tsmc,nvidia"
     NEWS_QUERY: str = "technology OR finance OR stocks OR AI"
 
+    # Public base URL for the "ดูกราฟ" buttons on the LINE cards. Render sets
+    # RENDER_EXTERNAL_URL itself, so DASHBOARD_URL is only needed elsewhere.
+    DASHBOARD_URL: str = ""
+    RENDER_EXTERNAL_URL: str = ""
+
     @field_validator(
         "LINE_CHANNEL_SECRET",
         "LINE_CHANNEL_ACCESS_TOKEN",
@@ -91,6 +96,11 @@ class Settings(BaseSettings):
     @property
     def gemini_api_key(self) -> str:
         return self.GEMINI_API_KEY or self.GOOGLE_API_KEY
+
+    @property
+    def dashboard_url(self) -> str:
+        url = (self.DASHBOARD_URL or self.RENDER_EXTERNAL_URL).strip().rstrip("/")
+        return url if url.startswith("https://") else ""
 
     @property
     def has_llm_key(self) -> bool:

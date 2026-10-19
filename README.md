@@ -40,17 +40,23 @@ the notification and the countdown shown everywhere else.
 **Every Monday at 10:00** (Asia/Bangkok) the bot pushes a brief covering your
 watchlist. Each entry is built from real data — never generated from memory:
 
-- **Prices** — last close, % change, 20-day support/resistance, 20/50-day
+- **Prices** — last close, 1-day and 1-week % change, the 20-day range (from
+  the sessions before the latest, so a breakdown shows up as one), 20/50-day
   moving averages
 - **Fundamentals** — latest quarterly revenue and net income with % change
-- **Analyst view** — consensus rating, mean/high/low target, number of analysts
+- **Analyst view** — consensus rating, mean target, number of analysts
 - **News** — recent headlines for that specific company
 
-Those figures go to **Gemini**, which writes a short Thai summary with a fixed
-set of rules: bullet points, grouped by company, no invented numbers, no buy/sell
-advice, and a closing risk note. If the LLM is unavailable the bot falls back to
-a deterministic Thai summary assembled directly from the same data, so a brief
-always arrives.
+It arrives as a **Flex carousel**: an overview card (up/down count and every
+symbol's weekly move), then one swipeable card per stock, biggest movers first,
+with a bar showing where the price sits in its 20-day range and buttons to the
+news story and the dashboard chart.
+
+The cards are laid out in code from the data above, so every number on them is
+the real figure. **Gemini** only writes the one-line Thai note on each card and
+the overview sentence — no buy/sell advice, no invented news. It is retried on
+429/5xx, and if it still fails the cards carry the raw headline instead, so a
+brief always arrives.
 
 **You can also just message it.** Send `NVDA` or `tsmc` and it replies with a
 brief for that symbol on the spot. Send `id` and it replies with your LINE user
@@ -131,7 +137,8 @@ anime/                Discord bot — behaviour unchanged from the original proj
 
 finance/              LINE bot
   brief.py            fetch prices → fetch news → summarise → send
-  summarizer.py       Gemini REST call, plus the no-LLM fallback summary
+  summarizer.py       Gemini notes (JSON) with retries, raw-headline fallback
+  brief_format.py     lays out the Flex carousel from the quote data
   scheduler.py        weekly cron (Mon 10:00 Asia/Bangkok)
   line_client.py      LINE Messaging API wrapper (push, reply, verify signature)
   watchlist.py        DB-backed stock watchlist
@@ -255,7 +262,8 @@ Dashboard at `http://localhost:8080`, API docs at `/docs`.
 | `TWELVEDATA_API_KEY` | prices — required in production, see the fallback note above |
 
 Optional: `GEMINI_MODEL`, `SCHEDULE_DAY_OF_WEEK` / `SCHEDULE_HOUR` /
-`SCHEDULE_MINUTE`, `TIMEZONE`, `NEWS_QUERY`.
+`SCHEDULE_MINUTE`, `TIMEZONE`, `NEWS_QUERY`, `DASHBOARD_URL` (base URL for the
+cards' chart buttons; on Render `RENDER_EXTERNAL_URL` is used automatically).
 
 `STOCK_SYMBOLS` seeds the watchlist on first run only — after that the database
 is the source of truth. `DISCORD_GUILD_ID` / `DISCORD_CHANNEL_ID` are needed

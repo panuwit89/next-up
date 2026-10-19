@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from finance.brief_format import CompanyBrief
 from finance.line_client import LineClient
 from finance.services.news import fetch_company_news
 from finance.services.stock_quotes import fetch_stock_quotes
@@ -17,13 +18,12 @@ MAX_RETRIES = 2
 
 def run_weekly_company_brief(query: str | None = None) -> str | None:
     """Scheduled weekly push (Mon 10:00 Asia/Bangkok by default)."""
-    summary = _build_brief(query)
-    if summary:
-        try:
-            LineClient().push_message(summary)
-        except Exception:
-            logger.exception("Failed to push weekly brief to LINE.")
-    return summary
+    brief = _build_brief(query)
+    try:
+        LineClient().push_brief(brief)
+    except Exception:
+        logger.exception("Failed to push weekly brief to LINE.")
+    return brief.alt_text
 
 
 # Kept for backwards-compatibility with the old name.
@@ -32,16 +32,15 @@ run_daily_brief = run_weekly_company_brief
 
 def run_ondemand_brief(query: str, reply_token: str) -> dict[str, Any]:
     """On-demand reply triggered by a LINE webhook message."""
-    summary = _build_brief(query)
-    if summary:
-        try:
-            LineClient().reply_message(reply_token or "", summary)
-        except Exception:
-            logger.exception("Failed to reply on-demand brief to LINE.")
-    return {"summary": summary}
+    brief = _build_brief(query)
+    try:
+        LineClient().reply_brief(reply_token or "", brief)
+    except Exception:
+        logger.exception("Failed to reply on-demand brief to LINE.")
+    return {"summary": brief.alt_text}
 
 
-def _build_brief(query: str | None) -> str | None:
+def _build_brief(query: str | None) -> CompanyBrief:
     requested_symbols = extract_stock_symbols(query) or None
 
     stock_data = _fetch_with_retries(
